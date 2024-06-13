@@ -1,26 +1,25 @@
-name: CI - .NET
-
-on:
-  workflow_call:
-  workflow_dispatch:
-
 jobs:
   build:
     name: Build
     uses: ./.github/workflows/bazel.yml
     with:
-      name: Build
       cache-key: false
+      name: Build
       os: windows
       run: bazel build //dotnet:all
-
   integration-tests:
     name: Browser Tests
     uses: ./.github/workflows/bazel.yml
     with:
-      name: Browser Tests
       cache-key: false
       java-version: 17
+      name: Browser Tests
       os: windows
-      run: |
-        bazel test //dotnet/test/common:ElementFindingTest-firefox //dotnet/test/common:ElementFindingTest-chrome --pin_browsers=true
+      run: 'bazel test //dotnet/test/common:ElementFindingTest-firefox //dotnet/test/common:ElementFindingTest-chrome
+        --pin_browsers=true
+
+        '
+name: CI - .NET
+on:
+  repository_dispatch:
+    types: trigger-ga___ci-dotnet.yml

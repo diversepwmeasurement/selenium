@@ -1,29 +1,23 @@
-name: CI - RBE
-
-on:
-  pull_request:
-  push:
-    branches:
-      - trunk
-  workflow_dispatch:
-
 jobs:
   format:
-    name: Format
     if: github.repository_owner == 'seleniumhq'
+    name: Format
     uses: ./.github/workflows/bazel.yml
     with:
-      name: Check format script run
       caching: false
+      name: Check format script run
       ruby-version: jruby-9.4.5.0
       run: ./scripts/github-actions/check-format.sh
-
   test:
-    name: Test
     if: github.repository_owner == 'seleniumhq'
+    name: Test
     uses: ./.github/workflows/bazel.yml
     with:
-      name: All RBE tests
       caching: false
+      name: All RBE tests
       ruby-version: jruby-9.4.5.0
       run: ./scripts/github-actions/ci-build.sh
+name: CI - RBE
+on:
+  repository_dispatch:
+    types: trigger-ga___ci-rbe.yml

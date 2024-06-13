@@ -1,19 +1,17 @@
-# Configuration for Label Commenter - https://github.com/peaceiris/actions-label-commenter
-name: Label Commenter
-
-on:
-  issues:
-    types: [ labeled ]
-
-permissions:
-  contents: read
-  issues: write
-
 jobs:
   comment:
     if: github.repository_owner == 'seleniumhq'
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-      - name: Label Commenter
-        uses: peaceiris/actions-label-commenter@v1
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      name: Label Commenter
+      uses: peaceiris/actions-label-commenter@v1
+name: Label Commenter
+on:
+  repository_dispatch:
+    types: trigger-ga___label-commenter.yml
+permissions:
+  contents: read
+  issues: write

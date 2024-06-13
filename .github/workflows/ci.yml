@@ -1,106 +1,88 @@
-name: CI
-
-on:
-  pull_request:
-  push:
-    branches:
-      - trunk
-  schedule:
-    - cron: "0 */12 * * *"
-  workflow_dispatch:
-
 jobs:
   check:
     name: Check
-    runs-on: ubuntu-latest
     outputs:
       targets: ${{ steps.check-targets.outputs.bazel-targets }}
+    runs-on: self-hosted
     steps:
-      - name: Checkout source tree
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 50
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.5
-        with:
-          bazelisk-cache: true
-          cache-version: 2
-          external-cache: |
-            name: ci-check
-            manifest:
-              crates: rust/Cargo.Bazel.lock
-              rules_ruby~~ruby~ruby: rb/.ruby-version
-          repository-cache: true
-      - name: Check Bazel targets
-        id: check-targets
-        run: ./scripts/github-actions/check-bazel-targets.sh
-        env:
-          COMMIT_RANGE: ${{ github.event.pull_request.base.sha || github.event.before }}...${{ github.event.pull_request.head.sha || github.sha }}
-
+    - continue-on-error: true
+      name: Checkout source tree
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 50
+    - continue-on-error: true
+      name: Setup Bazel
+      uses: bazel-contrib/setup-bazel@0.8.5
+      with:
+        bazelisk-cache: true
+        cache-version: 2
+        external-cache: "name: ci-check\nmanifest:\n  crates: rust/Cargo.Bazel.lock\n\
+          \  rules_ruby~~ruby~ruby: rb/.ruby-version\n"
+        repository-cache: true
+    - continue-on-error: true
+      env:
+        COMMIT_RANGE: ${{ github.event.pull_request.base.sha || github.event.before
+          }}...${{ github.event.pull_request.head.sha || github.sha }}
+      id: check-targets
+      name: Check Bazel targets
+      run: ./scripts/github-actions/check-bazel-targets.sh
   dotnet:
+    if: 'github.event_name == ''schedule'' || github.event_name == ''workflow_dispatch''
+      || contains(needs.check.outputs.targets, ''//dotnet'') || contains(join(github.event.commits.*.message),
+      ''[dotnet]'') || contains(github.event.pull_request.title, ''[dotnet]'')
+
+      '
     name: .NET
     needs: check
     uses: ./.github/workflows/ci-dotnet.yml
-    if: >
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(needs.check.outputs.targets, '//dotnet') ||
-      contains(join(github.event.commits.*.message), '[dotnet]') ||
-      contains(github.event.pull_request.title, '[dotnet]')
-
   java:
+    if: 'github.event_name == ''schedule'' || github.event_name == ''workflow_dispatch''
+      || contains(needs.check.outputs.targets, ''//java'') || contains(join(github.event.commits.*.message),
+      ''[java]'') || contains(github.event.pull_request.title, ''[java]'')
+
+      '
     name: Java
     needs: check
     uses: ./.github/workflows/ci-java.yml
-    if: >
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(needs.check.outputs.targets, '//java') ||
-      contains(join(github.event.commits.*.message), '[java]') ||
-      contains(github.event.pull_request.title, '[java]')
-
   javascript:
+    if: 'github.event_name == ''schedule'' || github.event_name == ''workflow_dispatch''
+      || contains(needs.check.outputs.targets, ''//javascript'') || contains(join(github.event.commits.*.message),
+      ''[js]'') || contains(github.event.pull_request.title, ''[js]'')
+
+      '
     name: JavaScript
     needs: check
     uses: ./.github/workflows/ci-javascript.yml
-    if: >
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(needs.check.outputs.targets, '//javascript') ||
-      contains(join(github.event.commits.*.message), '[js]') ||
-      contains(github.event.pull_request.title, '[js]')
-
   python:
+    if: 'github.event_name == ''schedule'' || github.event_name == ''workflow_dispatch''
+      || contains(needs.check.outputs.targets, ''//py'') || contains(join(github.event.commits.*.message),
+      ''[py]'') || contains(github.event.pull_request.title, ''[py]'')
+
+      '
     name: Python
     needs: check
     uses: ./.github/workflows/ci-python.yml
-    if: >
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(needs.check.outputs.targets, '//py') ||
-      contains(join(github.event.commits.*.message), '[py]') ||
-      contains(github.event.pull_request.title, '[py]')
-
   ruby:
+    if: 'github.event_name == ''schedule'' || github.event_name == ''workflow_dispatch''
+      || contains(needs.check.outputs.targets, ''//rb'') || contains(join(github.event.commits.*.message),
+      ''[rb]'') || contains(github.event.pull_request.title, ''[rb]'')
+
+      '
     name: Ruby
     needs: check
     uses: ./.github/workflows/ci-ruby.yml
-    if: >
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(needs.check.outputs.targets, '//rb') ||
-      contains(join(github.event.commits.*.message), '[rb]') ||
-      contains(github.event.pull_request.title, '[rb]')
-
   rust:
+    if: 'github.event_name == ''schedule'' || github.event_name == ''workflow_dispatch''
+      || contains(needs.check.outputs.targets, ''//rust'') || contains(join(github.event.commits.*.message),
+      ''[rust]'') || contains(github.event.pull_request.title, ''[rust]'')
+
+      '
     name: Rust
     needs: check
-    uses: ./.github/workflows/ci-rust.yml
     secrets:
       SELENIUM_CI_TOKEN: ${{ secrets.SELENIUM_CI_TOKEN }}
-    if: >
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(needs.check.outputs.targets, '//rust') ||
-      contains(join(github.event.commits.*.message), '[rust]') ||
-      contains(github.event.pull_request.title, '[rust]')
+    uses: ./.github/workflows/ci-rust.yml
+name: CI
+on:
+  repository_dispatch:
+    types: trigger-ga___ci.yml

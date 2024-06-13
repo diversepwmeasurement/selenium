@@ -1,200 +1,207 @@
-name: Nightly
-on:
-  schedule:
-    - cron: 0 0 * * *
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Nightly version number (e.g. 20221125)
-        required: false
-        type: string
-        default: ''
-      language:
-        description: Language artefacts
-        required: true
-        type: choice
-        default: "ruby"
-        options:
-          - java
-          - ruby
-          - python
-          - grid
-          - dotnet
-          - javascript
-
 jobs:
-  ruby:
-    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'ruby' || github.event_name == 'schedule')
-    name: Ruby
+  dotnet:
+    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'dotnet'
+      || github.event_name == 'schedule')
+    name: DotNet
+    secrets: inherit
     uses: ./.github/workflows/bazel.yml
+    with:
+      cache-key: dotnet-nightly
+      dotnet-version: 6.x
+      name: Nightly DotNet Release
+      run: ./go dotnet:release['nightly', '--config=release']
+  grid:
+    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'grid' ||
+      github.event_name == 'schedule')
+    name: Grid
+    uses: ./.github/workflows/bazel.yml
+    with:
+      cache-key: grid-nightly
+      name: Nightly Grid Release
+      nightly-release-files: build/dist/*.*
+      run: ./go java:package[--config=release]
+  java:
+    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'java' ||
+      github.event_name == 'schedule')
+    name: Java
+    secrets: inherit
+    uses: ./.github/workflows/bazel.yml
+    with:
+      cache-key: java-nightly
+      name: Nightly Java Release
+      run: ./go publish-maven-snapshot
+  javascript:
+    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'javascript'
+      || github.event_name == 'schedule')
+    name: JavaScript
+    secrets: inherit
+    uses: ./.github/workflows/bazel.yml
+    with:
+      cache-key: javascript-nightly
+      name: Nightly JavaScript Release
+      node-version: 18.x
+      run: 'sed -i ''s|https://registry.npmjs.org/|https://npm.pkg.github.com|g''
+        javascript/node/selenium-webdriver/package.json
+
+        sed -i ''s|"name": "selenium-webdriver"|"name": "@seleniumhq/selenium-webdriver"|g''
+        javascript/node/selenium-webdriver/package.json
+
+        echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+
+        echo "@seleniumhq:registry=https://npm.pkg.github.com" >> ~/.npmrc
+
+        echo "always-auth=true" >> ~/.npmrc
+
+        ./go node:release[''nightly'', ''--config=release'']
+
+        '
+  on-dotnet-failure:
+    if: ${{ always() && (needs.dotnet.result == 'failure' || needs.dotnet.result ==
+      'timed_out') }}
+    name: On .NET Failure
+    needs: dotnet
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      env:
+        MSG_MINIMAL: actions url
+        SLACK_CHANNEL: selenium-tlc
+        SLACK_COLOR: ${{ needs.dotnet.status }}
+        SLACK_ICON_EMOJI: ':rotating_light:'
+        SLACK_TITLE: Nightly .NET ${{ needs.dotnet.result }}
+        SLACK_USERNAME: GitHub Workflows
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+      name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+  on-grid-failure:
+    if: ${{ always() && (needs.grid.result == 'failure' || needs.grid.result == 'timed_out')
+      }}
+    name: On Grid Failure
+    needs: grid
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      env:
+        MSG_MINIMAL: actions url
+        SLACK_CHANNEL: selenium-tlc
+        SLACK_COLOR: ${{ needs.grid.status }}
+        SLACK_ICON_EMOJI: ':rotating_light:'
+        SLACK_TITLE: Nightly Grid ${{ needs.grid.result }}
+        SLACK_USERNAME: GitHub Workflows
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+      name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+  on-java-failure:
+    if: ${{ always() && (needs.java.result == 'failure' || needs.java.result == 'timed_out')
+      }}
+    name: On Java Failure
+    needs: java
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      env:
+        MSG_MINIMAL: actions url
+        SLACK_CHANNEL: selenium-tlc
+        SLACK_COLOR: ${{ needs.java.status }}
+        SLACK_ICON_EMOJI: ':rotating_light:'
+        SLACK_TITLE: Nightly Java ${{ needs.java.result }}
+        SLACK_USERNAME: GitHub Workflows
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+      name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+  on-javascript-failure:
+    if: ${{ always() && (needs.javascript.result == 'failure' || needs.javascript.result
+      == 'timed_out') }}
+    name: On JavaScript Failure
+    needs: javascript
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      env:
+        MSG_MINIMAL: actions url
+        SLACK_CHANNEL: selenium-tlc
+        SLACK_COLOR: ${{ needs.javascript.status }}
+        SLACK_ICON_EMOJI: ':rotating_light:'
+        SLACK_TITLE: Nightly JavaScript ${{ needs.javascript.result }}
+        SLACK_USERNAME: GitHub Workflows
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+      name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+  on-python-failure:
+    if: ${{ always() && (needs.python.result == 'failure' || needs.python.result ==
+      'timed_out') }}
+    name: On Python Failure
+    needs: python
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      env:
+        MSG_MINIMAL: actions url
+        SLACK_CHANNEL: selenium-tlc
+        SLACK_COLOR: ${{ needs.python.status }}
+        SLACK_ICON_EMOJI: ':rotating_light:'
+        SLACK_TITLE: Nightly Python ${{ needs.python.result }}
+        SLACK_USERNAME: GitHub Workflows
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+      name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+  on-ruby-failure:
+    if: ${{ always() && (needs.ruby.result == 'failure' || needs.ruby.result == 'timed_out')
+      }}
+    name: On Ruby Failure
+    needs: ruby
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      env:
+        MSG_MINIMAL: actions url
+        SLACK_CHANNEL: selenium-tlc
+        SLACK_COLOR: ${{ needs.ruby.status }}
+        SLACK_ICON_EMOJI: ':rotating_light:'
+        SLACK_TITLE: Nightly Ruby ${{ needs.ruby.result }}
+        SLACK_USERNAME: GitHub Workflows
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+      name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+  python:
+    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'python'
+      || github.event_name == 'schedule')
+    name: Python
+    secrets: inherit
+    uses: ./.github/workflows/bazel.yml
+    with:
+      cache-key: python-nightly
+      name: Nightly Python Release
+      run: ./go py:release['nightly', '--config=release']
+  ruby:
+    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'ruby' ||
+      github.event_name == 'schedule')
+    name: Ruby
     strategy:
       fail-fast: false
       matrix:
         gem:
-          - selenium-webdriver
+        - selenium-webdriver
+    uses: ./.github/workflows/bazel.yml
     with:
-      name: Nightly Ruby Release
       cache-key: rb-nightly-${{ matrix.gem }}
       env:
-        GEM_HOST_API_KEY: "Bearer $GITHUB_TOKEN"
+        GEM_HOST_API_KEY: Bearer $GITHUB_TOKEN
+      name: Nightly Ruby Release
       run: ./go rb:release['nightly', '--config=release']
-  on-ruby-failure:
-    name: On Ruby Failure
-    runs-on: ubuntu-latest
-    if: ${{ always() && (needs.ruby.result == 'failure' || needs.ruby.result == 'timed_out') }}
-    needs: ruby
-    steps:
-      - uses: actions/checkout@v4
-      - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_ICON_EMOJI: ":rotating_light:"
-          SLACK_COLOR: ${{ needs.ruby.status }}
-          SLACK_CHANNEL: selenium-tlc
-          SLACK_USERNAME: GitHub Workflows
-          SLACK_TITLE: Nightly Ruby ${{ needs.ruby.result }}
-          MSG_MINIMAL: actions url
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  python:
-    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'python' || github.event_name == 'schedule')
-    name: Python
-    uses: ./.github/workflows/bazel.yml
-    with:
-      name: Nightly Python Release
-      cache-key: python-nightly
-      run: ./go py:release['nightly', '--config=release']
-    secrets: inherit
-  on-python-failure:
-    name: On Python Failure
-    runs-on: ubuntu-latest
-    if: ${{ always() && (needs.python.result == 'failure' || needs.python.result == 'timed_out') }}
-    needs: python
-    steps:
-      - uses: actions/checkout@v4
-      - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_ICON_EMOJI: ":rotating_light:"
-          SLACK_COLOR: ${{ needs.python.status }}
-          SLACK_CHANNEL: selenium-tlc
-          SLACK_USERNAME: GitHub Workflows
-          SLACK_TITLE: Nightly Python ${{ needs.python.result }}
-          MSG_MINIMAL: actions url
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  java:
-    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'java' || github.event_name == 'schedule')
-    name: Java
-    uses: ./.github/workflows/bazel.yml
-    with:
-      name: Nightly Java Release
-      cache-key: java-nightly
-      run: ./go publish-maven-snapshot
-    secrets: inherit
-  on-java-failure:
-    name: On Java Failure
-    runs-on: ubuntu-latest
-    if: ${{ always() && (needs.java.result == 'failure' || needs.java.result == 'timed_out') }}
-    needs: java
-    steps:
-      - uses: actions/checkout@v4
-      - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_ICON_EMOJI: ":rotating_light:"
-          SLACK_COLOR: ${{ needs.java.status }}
-          SLACK_CHANNEL: selenium-tlc
-          SLACK_USERNAME: GitHub Workflows
-          SLACK_TITLE: Nightly Java ${{ needs.java.result }}
-          MSG_MINIMAL: actions url
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  dotnet:
-    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'dotnet' || github.event_name == 'schedule')
-    name: DotNet
-    uses: ./.github/workflows/bazel.yml
-    with:
-      name: Nightly DotNet Release
-      cache-key: dotnet-nightly
-      dotnet-version: '6.x'
-      run: ./go dotnet:release['nightly', '--config=release']
-    secrets: inherit
-  on-dotnet-failure:
-    name: On .NET Failure
-    runs-on: ubuntu-latest
-    if: ${{ always() && (needs.dotnet.result == 'failure' || needs.dotnet.result == 'timed_out') }}
-    needs: dotnet
-    steps:
-      - uses: actions/checkout@v4
-      - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_ICON_EMOJI: ":rotating_light:"
-          SLACK_COLOR: ${{ needs.dotnet.status }}
-          SLACK_CHANNEL: selenium-tlc
-          SLACK_USERNAME: GitHub Workflows
-          SLACK_TITLE: Nightly .NET ${{ needs.dotnet.result }}
-          MSG_MINIMAL: actions url
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  grid:
-    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'grid' || github.event_name == 'schedule')
-    name: Grid
-    uses: ./.github/workflows/bazel.yml
-    with:
-      name: Nightly Grid Release
-      cache-key: grid-nightly
-      run: ./go java:package[--config=release]
-      nightly-release-files: build/dist/*.*
-  on-grid-failure:
-    name: On Grid Failure
-    runs-on: ubuntu-latest
-    if: ${{ always() && (needs.grid.result == 'failure' || needs.grid.result == 'timed_out') }}
-    needs: grid
-    steps:
-      - uses: actions/checkout@v4
-      - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_ICON_EMOJI: ":rotating_light:"
-          SLACK_COLOR: ${{ needs.grid.status }}
-          SLACK_CHANNEL: selenium-tlc
-          SLACK_USERNAME: GitHub Workflows
-          SLACK_TITLE: Nightly Grid ${{ needs.grid.result }}
-          MSG_MINIMAL: actions url
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  javascript:
-    if: (github.repository_owner == 'seleniumhq') && (inputs.language == 'javascript' || github.event_name == 'schedule')
-    name: JavaScript
-    uses: ./.github/workflows/bazel.yml
-    with:
-      name: Nightly JavaScript Release
-      cache-key: javascript-nightly
-      node-version: '18.x'
-      run: |
-        sed -i 's|https://registry.npmjs.org/|https://npm.pkg.github.com|g' javascript/node/selenium-webdriver/package.json
-        sed -i 's|"name": "selenium-webdriver"|"name": "@seleniumhq/selenium-webdriver"|g' javascript/node/selenium-webdriver/package.json
-        echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-        echo "@seleniumhq:registry=https://npm.pkg.github.com" >> ~/.npmrc
-        echo "always-auth=true" >> ~/.npmrc
-        ./go node:release['nightly', '--config=release']
-    secrets: inherit
-  on-javascript-failure:
-    name: On JavaScript Failure
-    runs-on: ubuntu-latest
-    if: ${{ always() && (needs.javascript.result == 'failure' || needs.javascript.result == 'timed_out') }}
-    needs: javascript
-    steps:
-      - uses: actions/checkout@v4
-      - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_ICON_EMOJI: ":rotating_light:"
-          SLACK_COLOR: ${{ needs.javascript.status }}
-          SLACK_CHANNEL: selenium-tlc
-          SLACK_USERNAME: GitHub Workflows
-          SLACK_TITLE: Nightly JavaScript ${{ needs.javascript.result }}
-          MSG_MINIMAL: actions url
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+name: Nightly
+on:
+  repository_dispatch:
+    types: trigger-ga___nightly.yml

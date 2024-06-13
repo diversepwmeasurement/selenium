@@ -1,34 +1,30 @@
-name: CI - JavaScript
-
-on:
-  workflow_call:
-  workflow_dispatch:
-
 jobs:
-  build:
-    name: Build
-    uses: ./.github/workflows/bazel.yml
-    with:
-      name: Build
-      cache-key: javascript-build
-      run: bazel build //javascript/node/selenium-webdriver:selenium-webdriver
-
   browser-tests:
     name: Browser Tests
     needs: build
-    uses: ./.github/workflows/bazel.yml
     strategy:
       fail-fast: false
       matrix:
         browser:
-          - chrome
-          - firefox
+        - chrome
+        - firefox
+    uses: ./.github/workflows/bazel.yml
     with:
-      name: Browser Tests  (${{ matrix.browser }})
       browser: ${{ matrix.browser }}
       cache-key: javascript-${{matrix.browser}}-browser-tests
-      run: >
-        bazel test
-        --flaky_test_attempts 3
-        --test_tag_filters ${{ matrix.browser }}
-        //javascript/node/...
+      name: Browser Tests  (${{ matrix.browser }})
+      run: 'bazel test --flaky_test_attempts 3 --test_tag_filters ${{ matrix.browser
+        }} //javascript/node/...
+
+        '
+  build:
+    name: Build
+    uses: ./.github/workflows/bazel.yml
+    with:
+      cache-key: javascript-build
+      name: Build
+      run: bazel build //javascript/node/selenium-webdriver:selenium-webdriver
+name: CI - JavaScript
+on:
+  repository_dispatch:
+    types: trigger-ga___ci-javascript.yml
